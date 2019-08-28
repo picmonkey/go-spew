@@ -27,8 +27,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
-	"mnk.ee/emails"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 var (
@@ -492,8 +495,9 @@ func applyTags(val reflect.Value, tags ...string) {
 	val.SetString(newVal)
 }
 
-func normalize(str string) string {
-	return emails.Normalize(str)
+func normalize(s string) string {
+	s, _, _ = transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), runes.Map(unicode.ToLower)), s)
+	return strings.TrimSpace(s)
 }
 
 func hash(str string) string {
