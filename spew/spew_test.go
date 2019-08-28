@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/picmonkey/go-spew/spew"
@@ -123,6 +124,54 @@ func redirStdout(f func()) ([]byte, error) {
 	return ioutil.ReadFile(fileName)
 }
 
+type hashTester struct {
+	str           string
+	nonString     int       `spew:"hash"`
+	hash          string    `spew:"hash"`
+	hashPtr       *string   `spew:"hash"`
+	hashSlice     []string  `spew:"hash"`
+	hashPtrSlice  []*string `spew:"hash"`
+	normalize     string    `spew:"normalize"`
+	normalizeHash string    `spew:"normalize,hash"`
+	hashNormalize string    `spew:"hash,normalize"`
+}
+
+var str = "test"
+var str2 = "test2"
+
+var hashVal = &hashTester{
+	str:           "test",
+	nonString:     2,
+	hash:          "test",
+	hashPtr:       &str,
+	hashSlice:     []string{"test", "test2"},
+	hashPtrSlice:  []*string{&str, &str2},
+	normalize:     "TeSt",
+	normalizeHash: "TeSt",
+	hashNormalize: "TeSt",
+}
+
+var hashValCopy = *hashVal
+
+var expectedHashedDump = `(*spew_test.hashTester)({
+str: (string) (len=4) "test",
+nonString: (int) 2,
+hash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+hashPtr: (*string)((len=4) "098f6bcd4621d373cade4e832627b4f6"),
+hashSlice: ([]string) (len=2 cap=2) {
+(string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+(string) (len=5) "ad0234829205b9033196ba818f7a872b"
+},
+hashPtrSlice: ([]*string) (len=2 cap=2) {
+(*string)(<already shown>),
+(*string)((len=5) "ad0234829205b9033196ba818f7a872b")
+},
+normalize: (string) (len=4) "test",
+normalizeHash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+hashNormalize: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6"
+})
+`
+
 func initSpewTests() {
 	// Config states with various settings.
 	scsDefault := spew.NewDefaultConfig()
@@ -157,6 +206,17 @@ func initSpewTests() {
 	// Variable for tests on types which implement error interface.
 	te := customError(10)
 
+	type ignoreTester struct {
+		visible bool
+		ignore  bool `spew:"-"`
+	}
+
+	type ignoreTester2 struct {
+		visible  bool
+		ignore   bool `spew:"-"`
+		visible2 bool
+	}
+
 	spewTests = []spewTest{
 		{scsDefault, fCSFdump, "", int8(127), "(int8) 127\n"},
 		{scsDefault, fCSFprint, "", int16(32767), "32767"},
@@ -179,6 +239,16 @@ func initSpewTests() {
 		{scsDefault, fSprint, "", complex(-1, -2), "(-1-2i)"},
 		{scsDefault, fSprintf, "%v", complex(float32(-3), -4), "(-3-4i)"},
 		{scsDefault, fSprintln, "", complex(float64(-5), -6), "(-5-6i)\n"},
+		{scsDefault, fCSFdump, "", ignoreTester{
+			visible: true,
+			ignore:  true,
+		}, "(spew_test.ignoreTester) {\n visible: (bool) true\n}\n"},
+		{scsDefault, fCSFdump, "", ignoreTester2{
+			visible:  true,
+			ignore:   true,
+			visible2: true,
+		}, "(spew_test.ignoreTester2) {\n visible: (bool) true,\n visible2: (bool) true\n}\n"},
+		{scsNoPtrAddr, fCSFdump, "", hashVal, expectedHashedDump},
 		{scsNoMethods, fCSFprint, "", ts, "test"},
 		{scsNoMethods, fCSFprint, "", &ts, "<*>test"},
 		{scsNoMethods, fCSFprint, "", tps, "test"},
@@ -316,5 +386,8 @@ func TestSpew(t *testing.T) {
 			t.Errorf("ConfigState #%d\n got: %s want: %s", i, s, test.want)
 			continue
 		}
+	}
+	if !reflect.DeepEqual(*hashVal, hashValCopy) {
+		t.Errorf("%v != %v", *hashVal, hashValCopy)
 	}
 }
