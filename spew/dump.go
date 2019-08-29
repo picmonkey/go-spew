@@ -437,7 +437,12 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 				writeComma = true
 				writeNewline = true
 				d.indent()
-				d.w.Write([]byte(vtf.Name))
+				if tag == "" {
+					d.w.Write([]byte(vtf.Name))
+				} else {
+					tags := strings.Split(tag, ",")
+					d.w.Write([]byte(strings.TrimSpace(tags[0])))
+				}
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				val := d.unpackValue(v.Field(i))
@@ -471,6 +476,10 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 
 func applyTag(s, tag string) string {
 	tags := strings.Split(tag, ",")
+	if len(tags) < 2 {
+		return s
+	}
+	tags = tags[1:]
 	for _, tag := range tags {
 		if strings.TrimSpace(tag) == "normalize" {
 			s = normalize(s)
