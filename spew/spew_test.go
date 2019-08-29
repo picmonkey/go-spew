@@ -125,37 +125,37 @@ func redirStdout(f func()) ([]byte, error) {
 }
 
 type hashTester struct {
-	str           string
-	nonString     int       `spew:"hash"`
-	hash          string    `spew:"hash"`
-	hashPtr       *string   `spew:"hash"`
-	hashSlice     []string  `spew:"hash"`
-	hashPtrSlice  []*string `spew:"hash"`
-	normalize     string    `spew:"normalize"`
-	normalizeHash string    `spew:"normalize,hash"`
-	hashNormalize string    `spew:"hash,normalize"`
+	str         string
+	nonString   int       `spew:"nonStringHash,hash"`
+	string      string    `spew:"hash,hash"`
+	ptr         *string   `spew:"hashPtr,hash"`
+	slice       []string  `spew:"hashSlice,hash"`
+	ptrSlice    []*string `spew:"hashPtrSlice,hash"`
+	norm1       string    `spew:"normalize,normalize"`
+	normandhash string    `spew:"normalizeHash,normalize,hash"`
+	hashNorm    string    `spew:"hashNormalize,hash,normalize"`
 }
 
 var str = "test"
 var str2 = "test2"
 
 var hashVal = &hashTester{
-	str:           "test",
-	nonString:     2,
-	hash:          "test",
-	hashPtr:       &str,
-	hashSlice:     []string{"test", "test2"},
-	hashPtrSlice:  []*string{&str, &str2},
-	normalize:     "TeSt",
-	normalizeHash: "TeSt",
-	hashNormalize: "TeSt",
+	str:         "test",
+	nonString:   2,
+	string:      "test",
+	ptr:         &str,
+	slice:       []string{"test", "test2"},
+	ptrSlice:    []*string{&str, &str2},
+	norm1:       "TeSt",
+	normandhash: "TeSt",
+	hashNorm:    "TeSt",
 }
 
 var hashValCopy = *hashVal
 
 var expectedHashedDump = `(*spew_test.hashTester)({
 str: (string) (len=4) "test",
-nonString: (int) 2,
+nonStringHash: (int) 2,
 hash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
 hashPtr: (*string)((len=4) "098f6bcd4621d373cade4e832627b4f6"),
 hashSlice: ([]string) (len=2 cap=2) {
@@ -168,7 +168,7 @@ hashPtrSlice: ([]*string) (len=2 cap=2) {
 },
 normalize: (string) (len=4) "test",
 normalizeHash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
-hashNormalize: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6"
+hashNormalize: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012"
 })
 `
 

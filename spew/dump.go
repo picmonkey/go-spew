@@ -432,7 +432,6 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 				}
 				if writeComma {
 					d.w.Write(commaNewlineBytes)
-					writeComma = false
 				}
 				writeComma = true
 				writeNewline = true
@@ -483,10 +482,7 @@ func applyTag(s, tag string) string {
 	for _, tag := range tags {
 		if strings.TrimSpace(tag) == "normalize" {
 			s = normalize(s)
-		}
-	}
-	for _, tag := range tags {
-		if strings.TrimSpace(tag) == "hash" {
+		} else if strings.TrimSpace(tag) == "hash" {
 			s = hash(s)
 		}
 	}
