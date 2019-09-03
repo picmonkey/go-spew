@@ -436,12 +436,16 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 				writeComma = true
 				writeNewline = true
 				d.indent()
-				if tag == "" {
-					d.w.Write([]byte(vtf.Name))
-				} else {
-					tags := strings.Split(tag, ",")
-					d.w.Write([]byte(strings.TrimSpace(tags[0])))
+
+				name := tag
+				if idx := strings.Index(tag, ","); idx != -1 {
+					name = strings.TrimSpace(tag[:idx])
 				}
+				if name == "" {
+					name = vtf.Name
+				}
+				d.w.Write([]byte(name))
+
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				val := d.unpackValue(v.Field(i))
