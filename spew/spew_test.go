@@ -133,7 +133,7 @@ type hashTester struct {
 	ptrSlice    []*string `spew:"hashPtrSlice,hash"`
 	norm1       string    `spew:"normalize,normalize"`
 	normandhash string    `spew:"normalizeHash,normalize,hash"`
-	hashNorm    string    `spew:"hashNormalize,hash,normalize"`
+	hashNorm    string    `spew:",hash,normalize"`
 }
 
 var str = "test"
@@ -168,7 +168,7 @@ hashPtrSlice: ([]*string) (len=2 cap=2) {
 },
 normalize: (string) (len=4) "test",
 normalizeHash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
-hashNormalize: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012"
+hashNorm: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012"
 })
 `
 
