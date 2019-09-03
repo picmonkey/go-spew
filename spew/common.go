@@ -52,6 +52,7 @@ var (
 	circularBytes         = []byte("<already shown>")
 	circularShortBytes    = []byte("<shown>")
 	invalidAngleBytes     = []byte("<invalid>")
+	onlyLengthBytes       = []byte("<only len>")
 	openBracketBytes      = []byte("[")
 	closeBracketBytes     = []byte("]")
 	percentBytes          = []byte("%")

@@ -84,7 +84,7 @@ func (d *dumpState) unpackValue(v reflect.Value) reflect.Value {
 }
 
 // dumpPtr handles formatting of pointers by indirecting them as necessary.
-func (d *dumpState) dumpPtr(v reflect.Value, tag string) {
+func (d *dumpState) dumpPtr(v reflect.Value, tags ...string) {
 	// Remove pointers at or below the current depth from map used to detect
 	// circular refs.
 	for k, depth := range d.pointers {
@@ -157,14 +157,14 @@ func (d *dumpState) dumpPtr(v reflect.Value, tag string) {
 
 	default:
 		d.ignoreNextType = true
-		d.dump(ve, tag)
+		d.dump(ve, tags...)
 	}
 	d.w.Write(closeParenBytes)
 }
 
 // dumpSlice handles formatting of arrays and slices.  Byte (uint8 under
 // reflection) arrays and slices are dumped in hexdump -C fashion.
-func (d *dumpState) dumpSlice(v reflect.Value, tag string) {
+func (d *dumpState) dumpSlice(v reflect.Value, tags ...string) {
 	// Determine whether this type should be hex dumped or not.  Also,
 	// for types which should be hexdumped, try to use the underlying data
 	// first, then fall back to trying to convert them to a uint8 slice.
@@ -241,7 +241,7 @@ func (d *dumpState) dumpSlice(v reflect.Value, tag string) {
 
 	// Recursively call dump for each item.
 	for i := 0; i < numEntries; i++ {
-		d.dump(d.unpackValue(v.Index(i)), tag)
+		d.dump(d.unpackValue(v.Index(i)), tags...)
 		if i < (numEntries - 1) {
 			d.w.Write(commaNewlineBytes)
 		} else {
@@ -254,7 +254,7 @@ func (d *dumpState) dumpSlice(v reflect.Value, tag string) {
 // value to figure out what kind of object we are dealing with and formats it
 // appropriately.  It is a recursive function, however circular data structures
 // are detected and handled properly.
-func (d *dumpState) dump(v reflect.Value, tag string) {
+func (d *dumpState) dump(v reflect.Value, tags ...string) {
 	// Handle invalid reflect values immediately.
 	kind := v.Kind()
 	if kind == reflect.Invalid {
@@ -265,7 +265,7 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 	// Handle pointers specially.
 	if kind == reflect.Ptr {
 		d.indent()
-		d.dumpPtr(v, tag)
+		d.dumpPtr(v, tags...)
 		return
 	}
 
@@ -349,24 +349,29 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 		fallthrough
 
 	case reflect.Array:
-		d.w.Write(openBraceNewlineBytes)
-		d.depth++
-		if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
-			d.indent()
-			d.w.Write(maxNewlineBytes)
+		if lengthOnly(tags...) {
+			d.w.Write(onlyLengthBytes)
 		} else {
-			d.dumpSlice(v, tag)
+			d.w.Write(openBraceNewlineBytes)
+			d.depth++
+			if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
+				d.indent()
+				d.w.Write(maxNewlineBytes)
+			} else {
+				d.dumpSlice(v, tags...)
+			}
+			d.depth--
+			d.indent()
+			d.w.Write(closeBraceBytes)
 		}
-		d.depth--
-		d.indent()
-		d.w.Write(closeBraceBytes)
 
 	case reflect.String:
-		str := v.String()
-		if tag != "" {
-			str = applyTag(str, tag)
+		if lengthOnly(tags...) {
+			d.w.Write(onlyLengthBytes)
+		} else {
+			str := applyTags(v.String(), tags...)
+			d.w.Write([]byte(strconv.Quote(str)))
 		}
-		d.w.Write([]byte(strconv.Quote(str)))
 
 	case reflect.Interface:
 		// The only time we should get here is for nil interfaces due to
@@ -386,32 +391,36 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 			break
 		}
 
-		d.w.Write(openBraceNewlineBytes)
-		d.depth++
-		if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
-			d.indent()
-			d.w.Write(maxNewlineBytes)
+		if lengthOnly(tags...) {
+			d.w.Write(onlyLengthBytes)
 		} else {
-			numEntries := v.Len()
-			keys := v.MapKeys()
-			if d.cs.SortKeys {
-				sortValues(keys, d.cs)
-			}
-			for i, key := range keys {
-				d.dump(d.unpackValue(key), "")
-				d.w.Write(colonSpaceBytes)
-				d.ignoreNextIndent = true
-				d.dump(d.unpackValue(v.MapIndex(key)), "")
-				if i < (numEntries - 1) {
-					d.w.Write(commaNewlineBytes)
-				} else {
-					d.w.Write(newlineBytes)
+			d.w.Write(openBraceNewlineBytes)
+			d.depth++
+			if (d.cs.MaxDepth != 0) && (d.depth > d.cs.MaxDepth) {
+				d.indent()
+				d.w.Write(maxNewlineBytes)
+			} else {
+				numEntries := v.Len()
+				keys := v.MapKeys()
+				if d.cs.SortKeys {
+					sortValues(keys, d.cs)
+				}
+				for i, key := range keys {
+					d.dump(d.unpackValue(key))
+					d.w.Write(colonSpaceBytes)
+					d.ignoreNextIndent = true
+					d.dump(d.unpackValue(v.MapIndex(key)))
+					if i < (numEntries - 1) {
+						d.w.Write(commaNewlineBytes)
+					} else {
+						d.w.Write(newlineBytes)
+					}
 				}
 			}
+			d.depth--
+			d.indent()
+			d.w.Write(closeBraceBytes)
 		}
-		d.depth--
-		d.indent()
-		d.w.Write(closeBraceBytes)
 
 	case reflect.Struct:
 		d.w.Write(openBraceNewlineBytes)
@@ -438,8 +447,10 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 				d.indent()
 
 				name := tag
+				var fieldTags []string
 				if idx := strings.Index(tag, ","); idx != -1 {
 					name = strings.TrimSpace(tag[:idx])
+					fieldTags = strings.Split(tag[idx+1:], ",")
 				}
 				if name == "" {
 					name = vtf.Name
@@ -449,7 +460,7 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 				d.w.Write(colonSpaceBytes)
 				d.ignoreNextIndent = true
 				val := d.unpackValue(v.Field(i))
-				d.dump(val, tag)
+				d.dump(val, fieldTags...)
 			}
 			if writeNewline {
 				d.w.Write(newlineBytes)
@@ -477,12 +488,16 @@ func (d *dumpState) dump(v reflect.Value, tag string) {
 	}
 }
 
-func applyTag(s, tag string) string {
-	tags := strings.Split(tag, ",")
-	if len(tags) < 2 {
-		return s
+func lengthOnly(tags ...string) bool {
+	for _, tag := range tags {
+		if strings.TrimSpace(tag) == "length" {
+			return true
+		}
 	}
-	tags = tags[1:]
+	return false
+}
+
+func applyTags(s string, tags ...string) string {
 	for _, tag := range tags {
 		if strings.TrimSpace(tag) == "normalize" {
 			s = normalize(s)
@@ -517,7 +532,7 @@ func fdump(cs *ConfigState, w io.Writer, a ...interface{}) {
 
 		d := dumpState{w: w, cs: cs}
 		d.pointers = make(map[uintptr]int)
-		d.dump(reflect.ValueOf(arg), "")
+		d.dump(reflect.ValueOf(arg))
 		d.w.Write(newlineBytes)
 	}
 }

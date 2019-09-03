@@ -124,22 +124,25 @@ func redirStdout(f func()) ([]byte, error) {
 	return ioutil.ReadFile(fileName)
 }
 
-type hashTester struct {
+type tagTester struct {
 	str         string
-	nonString   int       `spew:"nonStringHash,hash"`
-	string      string    `spew:"hash,hash"`
-	ptr         *string   `spew:"hashPtr,hash"`
-	slice       []string  `spew:"hashSlice,hash"`
-	ptrSlice    []*string `spew:"hashPtrSlice,hash"`
-	norm1       string    `spew:"normalize,normalize"`
-	normandhash string    `spew:"normalizeHash,normalize,hash"`
-	hashNorm    string    `spew:",hash,normalize"`
+	nonString   int            `spew:"nonStringHash,hash"`
+	string      string         `spew:"hash,hash"`
+	ptr         *string        `spew:"hashPtr,hash"`
+	slice       []string       `spew:"hashSlice,hash"`
+	ptrSlice    []*string      `spew:"hashPtrSlice,hash"`
+	norm1       string         `spew:"normalize,normalize"`
+	normandhash string         `spew:"normalizeHash,normalize,hash"`
+	hashNorm    string         `spew:",hash,normalize"`
+	arr         []int          `spew:"lengthOnly,length"`
+	dict        map[string]int `spew:"lengthMap,length"`
+	lstr        string         `spew:"lengthString,length"`
 }
 
 var str = "test"
 var str2 = "test2"
 
-var hashVal = &hashTester{
+var tagVal = &tagTester{
 	str:         "test",
 	nonString:   2,
 	string:      "test",
@@ -149,11 +152,14 @@ var hashVal = &hashTester{
 	norm1:       "TeSt",
 	normandhash: "TeSt",
 	hashNorm:    "TeSt",
+	arr:         []int{1, 2, 3},
+	dict:        map[string]int{"test": 1, "test2": 2},
+	lstr:        "testString",
 }
 
-var hashValCopy = *hashVal
+var tagValCopy = *tagVal
 
-var expectedHashedDump = `(*spew_test.hashTester)({
+var expectedHashedDump = `(*spew_test.tagTester)({
 str: (string) (len=4) "test",
 nonStringHash: (int) 2,
 hash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
@@ -168,7 +174,10 @@ hashPtrSlice: ([]*string) (len=2 cap=2) {
 },
 normalize: (string) (len=4) "test",
 normalizeHash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
-hashNorm: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012"
+hashNorm: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012",
+lengthOnly: ([]int) (len=3 cap=3) <only len>,
+lengthMap: (map[string]int) (len=2) <only len>,
+lengthString: (string) (len=10) <only len>
 })
 `
 
@@ -248,7 +257,7 @@ func initSpewTests() {
 			ignore:   true,
 			visible2: true,
 		}, "(spew_test.ignoreTester2) {\n visible: (bool) true,\n visible2: (bool) true\n}\n"},
-		{scsNoPtrAddr, fCSFdump, "", hashVal, expectedHashedDump},
+		{scsNoPtrAddr, fCSFdump, "", tagVal, expectedHashedDump},
 		{scsNoMethods, fCSFprint, "", ts, "test"},
 		{scsNoMethods, fCSFprint, "", &ts, "<*>test"},
 		{scsNoMethods, fCSFprint, "", tps, "test"},
@@ -387,7 +396,7 @@ func TestSpew(t *testing.T) {
 			continue
 		}
 	}
-	if !reflect.DeepEqual(*hashVal, hashValCopy) {
-		t.Errorf("%v != %v", *hashVal, hashValCopy)
+	if !reflect.DeepEqual(*tagVal, tagValCopy) {
+		t.Errorf("%v != %v", *tagVal, tagValCopy)
 	}
 }
