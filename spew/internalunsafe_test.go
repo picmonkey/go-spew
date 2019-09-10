@@ -57,7 +57,7 @@ func TestAddedReflectValue(t *testing.T) {
 	changeKind(&v, false)
 	buf := new(bytes.Buffer)
 	d := dumpState{w: buf, cs: &Config}
-	d.dump(v)
+	d.dump(v, "")
 	s := buf.String()
 	want := "(int8) 5"
 	if s != want {
@@ -68,7 +68,7 @@ func TestAddedReflectValue(t *testing.T) {
 	// Dump using a reflect.Value that is not exported.
 	changeKind(&v, true)
 	buf.Reset()
-	d.dump(v)
+	d.dump(v, "")
 	s = buf.String()
 	want = "(int8) <int8 Value>"
 	if s != want {

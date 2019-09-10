@@ -58,7 +58,7 @@ func TestInvalidReflectValue(t *testing.T) {
 	v := new(reflect.Value)
 	buf := new(bytes.Buffer)
 	d := dumpState{w: buf, cs: &Config}
-	d.dump(*v)
+	d.dump(*v, "")
 	s := buf.String()
 	want := "<invalid>"
 	if s != want {

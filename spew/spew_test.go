@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/picmonkey/go-spew/spew"
@@ -123,6 +124,63 @@ func redirStdout(f func()) ([]byte, error) {
 	return ioutil.ReadFile(fileName)
 }
 
+type tagTester struct {
+	str         string
+	nonString   int            `spew:"nonStringHash,hash"`
+	string      string         `spew:"hash,hash"`
+	ptr         *string        `spew:"hashPtr,hash"`
+	slice       []string       `spew:"hashSlice,hash"`
+	ptrSlice    []*string      `spew:"hashPtrSlice,hash"`
+	norm1       string         `spew:"normalize,normalize"`
+	normandhash string         `spew:"normalizeHash,normalize,hash"`
+	hashNorm    string         `spew:",hash,normalize"`
+	arr         []int          `spew:"lengthOnly,length"`
+	dict        map[string]int `spew:"lengthMap,length"`
+	lstr        string         `spew:"lengthString,length"`
+}
+
+var str = "test"
+var str2 = "test2"
+
+var tagVal = &tagTester{
+	str:         "test",
+	nonString:   2,
+	string:      "test",
+	ptr:         &str,
+	slice:       []string{"test", "test2"},
+	ptrSlice:    []*string{&str, &str2},
+	norm1:       "TeSt",
+	normandhash: "TeSt",
+	hashNorm:    "TeSt",
+	arr:         []int{1, 2, 3},
+	dict:        map[string]int{"test": 1, "test2": 2},
+	lstr:        "testString",
+}
+
+var tagValCopy = *tagVal
+
+var expectedHashedDump = `(*spew_test.tagTester)({
+str: (string) (len=4) "test",
+nonStringHash: (int) 2,
+hash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+hashPtr: (*string)((len=4) "098f6bcd4621d373cade4e832627b4f6"),
+hashSlice: ([]string) (len=2 cap=2) {
+(string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+(string) (len=5) "ad0234829205b9033196ba818f7a872b"
+},
+hashPtrSlice: ([]*string) (len=2 cap=2) {
+(*string)(<already shown>),
+(*string)((len=5) "ad0234829205b9033196ba818f7a872b")
+},
+normalize: (string) (len=4) "test",
+normalizeHash: (string) (len=4) "098f6bcd4621d373cade4e832627b4f6",
+hashNorm: (string) (len=4) "cc2d246d9a763bac2a3f5ec5ecb68012",
+lengthOnly: ([]int) (len=3 cap=3) <only len>,
+lengthMap: (map[string]int) (len=2) <only len>,
+lengthString: (string) (len=10) <only len>
+})
+`
+
 func initSpewTests() {
 	// Config states with various settings.
 	scsDefault := spew.NewDefaultConfig()
@@ -157,6 +215,17 @@ func initSpewTests() {
 	// Variable for tests on types which implement error interface.
 	te := customError(10)
 
+	type ignoreTester struct {
+		visible bool
+		ignore  bool `spew:"-"`
+	}
+
+	type ignoreTester2 struct {
+		visible  bool
+		ignore   bool `spew:"-"`
+		visible2 bool
+	}
+
 	spewTests = []spewTest{
 		{scsDefault, fCSFdump, "", int8(127), "(int8) 127\n"},
 		{scsDefault, fCSFprint, "", int16(32767), "32767"},
@@ -179,6 +248,16 @@ func initSpewTests() {
 		{scsDefault, fSprint, "", complex(-1, -2), "(-1-2i)"},
 		{scsDefault, fSprintf, "%v", complex(float32(-3), -4), "(-3-4i)"},
 		{scsDefault, fSprintln, "", complex(float64(-5), -6), "(-5-6i)\n"},
+		{scsDefault, fCSFdump, "", ignoreTester{
+			visible: true,
+			ignore:  true,
+		}, "(spew_test.ignoreTester) {\n visible: (bool) true\n}\n"},
+		{scsDefault, fCSFdump, "", ignoreTester2{
+			visible:  true,
+			ignore:   true,
+			visible2: true,
+		}, "(spew_test.ignoreTester2) {\n visible: (bool) true,\n visible2: (bool) true\n}\n"},
+		{scsNoPtrAddr, fCSFdump, "", tagVal, expectedHashedDump},
 		{scsNoMethods, fCSFprint, "", ts, "test"},
 		{scsNoMethods, fCSFprint, "", &ts, "<*>test"},
 		{scsNoMethods, fCSFprint, "", tps, "test"},
@@ -316,5 +395,8 @@ func TestSpew(t *testing.T) {
 			t.Errorf("ConfigState #%d\n got: %s want: %s", i, s, test.want)
 			continue
 		}
+	}
+	if !reflect.DeepEqual(*tagVal, tagValCopy) {
+		t.Errorf("%v != %v", *tagVal, tagValCopy)
 	}
 }
